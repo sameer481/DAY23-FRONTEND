@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Day 23: Asynchronous vs Synchronous JavaScript Lab</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --microtask: #a855f7;
+      --macrotask: #ec4899;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    header h1 {
+      font-size: 2.25rem;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: var(--text-muted);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    .card h2 {
+      font-size: 1.25rem;
+      margin-bottom: 16px;
+      color: #93c5fd;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    button {
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    button.accent { background: var(--accent); }
+    button.warning { background: var(--warning); color: #090d16; }
+    button.danger { background: var(--danger); }
+
+    .grid-queues {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .queue-box {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .queue-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .queue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .node-tag {
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      animation: popIn 0.2s ease-out;
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .tag-stack { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-left: 3px solid var(--primary); }
+    .tag-api { background: rgba(245, 158, 11, 0.2); color: #fde68a; border-left: 3px solid var(--warning); }
+    .tag-micro { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border-left: 3px solid var(--microtask); }
+    .tag-macro { background: rgba(236, 72, 153, 0.2); color: #f472b6; border-left: 3px solid var(--macrotask); }
+
+    .console {
+      background: #030712;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      height: 160px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+
+    .heartbeat-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 8px;
+    }
+
+    .heartbeat-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #3b82f6;
+      color: white;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Day 23: Async vs Sync Interactive Lab</h1>
+      <p>Observe Call Stack execution, Microtasks, Macrotasks, Thread Freezes, and Concurrency</p>
+    </header>
+
+    <!-- SECTION 1: EVENT LOOP VISUALIZER -->
+    <section class="card">
+      <h2>1. The Event Loop Simulator</h2>
+      <div class="controls">
+        <button id="simBtn" class="accent">▶ Run Event Loop Step Simulation</button>
+        <button id="clearBtn">Clear Visualizer</button>
+      </div>
+
+      <div class="grid-queues">
+        <div class="queue-box">
+          <div class="queue-title" style="color: #60a5fa">Call Stack</div>
+          <div id="stackList" class="queue-list"></div>
+        </div>
+        <div class="queue-box">
+          <div class="queue-title" style="color: #fbbf24">Web APIs</div>
+          <div id="apiList" class="queue-list"></div>
+        </div>
+        <div class="queue-box">
+          <div class="queue-title" style="color: #c084fc">Microtasks (Promise)</div>
+          <div id="microList" class="queue-list"></div>
+        </div>
+        <div class="queue-box">
+          <div class="queue-title" style="color: #f472b6">Macrotasks (Timer)</div>
+          <div id="macroList" class="queue-list"></div>
+        </div>
+      </div>
+
+      <div id="consoleLog" class="console">
+        <div>Ready. Click "Run Event Loop Step Simulation" to inspect execution order...</div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: THREAD BLOCKING & HEARTBEAT -->
+    <section class="card">
+      <h2>2. Synchronous Thread Freeze vs Non-Blocking Yield</h2>
+      <div class="controls">
+        <button id="blockBtn" class="danger">⚠️ Synchronous Block (1.5s While Loop)</button>
+        <button id="nonBlockBtn" class="accent">✨ Asynchronous Non-Blocking Chunks</button>
+      </div>
+
+      <div class="heartbeat-bar">
+        <div id="pulseCircle" class="heartbeat-circle">0</div>
+        <div>
+          <strong id="threadStatus">UI Thread is Healthy (Responsive)</strong>
+          <div style="font-size: 0.85rem; color: var(--text-muted);">
+            The circle ticks every 50ms. If you click Synchronous Block, the entire page thread freezes!
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Live Pulse Counter
+    const pulseCircle = document.getElementById('pulseCircle');
+    const threadStatus = document.getElementById('threadStatus');
+    let pulseCount = 0;
+    setInterval(() => {
+      pulseCount = (pulseCount + 1) % 1000;
+      pulseCircle.textContent = pulseCount;
+    }, 50);
+
+    // Event Loop Visualizer
+    const simBtn = document.getElementById('simBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const stackList = document.getElementById('stackList');
+    const apiList = document.getElementById('apiList');
+    const microList = document.getElementById('microList');
+    const macroList = document.getElementById('macroList');
+    const consoleLog = document.getElementById('consoleLog');
+
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    function logConsole(msg) {
+      const line = document.createElement('div');
+      line.textContent = msg;
+      consoleLog.appendChild(line);
+      consoleLog.scrollTop = consoleLog.scrollHeight;
+    }
+
+    function renderTags(element, items, tagClass) {
+      element.innerHTML = '';
+      items.forEach(txt => {
+        const d = document.createElement('div');
+        d.className = `node-tag ${tagClass}`;
+        d.textContent = txt;
+        element.appendChild(d);
+      });
+    }
+
+    simBtn.addEventListener('click', async () => {
+      simBtn.disabled = true;
+      consoleLog.innerHTML = '';
+
+      // 1. Script start
+      renderTags(stackList, ['main()'], 'tag-stack');
+      logConsole('1: Script Start (Synchronous Call Stack)');
+      await sleep(700);
+
+      // 2. setTimeout
+      renderTags(stackList, ['setTimeout(cb, 0)', 'main()'], 'tag-stack');
+      await sleep(500);
+      renderTags(apiList, ['Timer (0ms)'], 'tag-api');
+      renderTags(stackList, ['main()'], 'tag-stack');
+      await sleep(600);
+
+      // Timer completes -> Macrotask
+      renderTags(apiList, [], 'tag-api');
+      renderTags(macroList, ['setTimeout Callback'], 'tag-macro');
+      await sleep(500);
+
+      // 3. Promise
+      renderTags(stackList, ['Promise.resolve().then(...)', 'main()'], 'tag-stack');
+      await sleep(500);
+      renderTags(microList, ['Promise Microtask'], 'tag-micro');
+      renderTags(stackList, ['main()'], 'tag-stack');
+      await sleep(600);
+
+      // 4. Script end
+      logConsole('2: Script End (Synchronous Call Stack)');
+      await sleep(600);
+      renderTags(stackList, [], 'tag-stack');
+      logConsole('--- Call Stack Empty: Event Loop drains Microtask Queue ---');
+      await sleep(800);
+
+      // 5. Drain Microtasks
+      renderTags(stackList, ['Promise Microtask'], 'tag-stack');
+      renderTags(microList, [], 'tag-micro');
+      logConsole('3: Promise Resolved (Microtask Queue)');
+      await sleep(700);
+      renderTags(stackList, [], 'tag-stack');
+      await sleep(500);
+
+      // 6. Run Macrotask
+      logConsole('--- Microtasks Clean: Event Loop picks ONE Macrotask ---');
+      renderTags(stackList, ['setTimeout Callback'], 'tag-stack');
+      renderTags(macroList, [], 'tag-macro');
+      logConsole('4: setTimeout Executed (Macrotask Queue)');
+      await sleep(700);
+      renderTags(stackList, [], 'tag-stack');
+
+      logConsole('✅ Event Loop Tick Completed Cleanly!');
+      simBtn.disabled = false;
+    });
+
+    clearBtn.addEventListener('click', () => {
+      renderTags(stackList, [], 'tag-stack');
+      renderTags(apiList, [], 'tag-api');
+      renderTags(microList, [], 'tag-micro');
+      renderTags(macroList, [], 'tag-macro');
+      consoleLog.innerHTML = '<div>Cleared.</div>';
+    });
+
+    // Synchronous Thread Blocking
+    document.getElementById('blockBtn').addEventListener('click', () => {
+      threadStatus.textContent = 'THREAD FROZEN BY WHILE LOOP (Notice counter stopped!)';
+      threadStatus.style.color = '#ef4444';
+      setTimeout(() => {
+        const start = Date.now();
+        while (Date.now() - start < 1500) {
+          // Synchronous blocking
+        }
+        threadStatus.textContent = 'Thread recovered and responsive!';
+        threadStatus.style.color = '#10b981';
+      }, 50);
+    });
+
+    // Asynchronous Non-blocking Chunks
+    document.getElementById('nonBlockBtn').addEventListener('click', async () => {
+      threadStatus.textContent = 'Running async chunks without freezing counter...';
+      threadStatus.style.color = '#38bdf8';
+      for (let i = 1; i <= 5; i++) {
+        await sleep(300);
+        threadStatus.textContent = `Completed chunk ${i}/5 smoothly!`;
+      }
+      threadStatus.textContent = 'Async operation completed with 0 freeze!';
+      threadStatus.style.color = '#10b981';
+    });
+  </script>
+</body>
+</html>
